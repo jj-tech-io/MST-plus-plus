@@ -29,7 +29,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = opt.gpu_id
 
 # load dataset
 print("\nloading dataset ...")
-train_data = TrainDataset(data_root=opt.data_root, crop_size=opt.patch_size, bgr2rgb=True, arg=True, stride=opt.stride)
+train_data = TrainDataset(crop_size=opt.patch_size, bgr2rgb=True, arg=True, stride=opt.stride)
 print(f"Iteration per epoch: {len(train_data)}")
 val_data = ValidDataset(data_root=opt.data_root, bgr2rgb=True)
 print("Validation set samples: ", len(val_data))

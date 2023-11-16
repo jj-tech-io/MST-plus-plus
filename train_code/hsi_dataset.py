@@ -3,9 +3,10 @@ import numpy as np
 import random
 import cv2
 import h5py
+import os
 
 class TrainDataset(Dataset):
-    def __init__(self, data_root, crop_size, arg=True, bgr2rgb=True, stride=8):
+    def __init__(self, crop_size, arg=True, bgr2rgb=True, stride=8):
         self.crop_size = crop_size
         self.hypers = []
         self.bgrs = []
@@ -16,12 +17,16 @@ class TrainDataset(Dataset):
         self.patch_per_colum = (h-crop_size)//stride+1
         self.patch_per_img = self.patch_per_line*self.patch_per_colum
 
-        hyper_data_path = f'{data_root}/Train_Spec/'
-        bgr_data_path = f'{data_root}/Train_RGB/'
+        hyper_data_path = r'D:\\HSI_DATASET\\train_vis\\VIS\\'
+        bgr_data_path = r'D:\\HSI_DATASET\\train_vis\\RGB_CIE\\'
+        hyper_list = []
+        bgr_list = []
+        hyper_list = os.listdir(hyper_data_path)
+        bgr_list = os.listdir(bgr_data_path)
 
-        with open(f'{data_root}/split_txt/train_list.txt', 'r') as fin:
-            hyper_list = [line.replace('\n','.mat') for line in fin]
-            bgr_list = [line.replace('mat','jpg') for line in hyper_list]
+        # with open(f'{data_root}/split_txt/train_list.txt', 'r') as fin:
+        #     hyper_list = [line.replace('\n','.mat') for line in fin]
+        #     bgr_list = [line.replace('mat','jpg') for line in hyper_list]
         hyper_list.sort()
         bgr_list.sort()
         print(f'len(hyper) of ntire2022 dataset:{len(hyper_list)}')
@@ -29,7 +34,8 @@ class TrainDataset(Dataset):
         for i in range(len(hyper_list)):
             hyper_path = hyper_data_path + hyper_list[i]
             if 'mat' not in hyper_path:
-                continue
+                #load .npy
+                hyper = np.load(hyper_path)
             with h5py.File(hyper_path, 'r') as mat:
                 hyper =np.float32(np.array(mat['cube']))
             hyper = np.transpose(hyper, [0, 2, 1])
@@ -84,8 +90,8 @@ class ValidDataset(Dataset):
     def __init__(self, data_root, bgr2rgb=True):
         self.hypers = []
         self.bgrs = []
-        hyper_data_path = f'{data_root}/Train_Spec/'
-        bgr_data_path = f'{data_root}/Train_RGB/'
+        hyper_data_path = f'D:\HSI_DATASET\train_vis\VIS'
+        bgr_data_path = f'D:\HSI_DATASET\train_vis\RGB_CIE'
         with open(f'{data_root}/split_txt/valid_list.txt', 'r') as fin:
             hyper_list = [line.replace('\n', '.mat') for line in fin]
             bgr_list = [line.replace('mat','jpg') for line in hyper_list]
