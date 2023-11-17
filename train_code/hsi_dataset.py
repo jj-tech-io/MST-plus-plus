@@ -76,8 +76,8 @@ class TrainDataset(Dataset):
                 continue
             self.hypers.append(hyper)
             self.bgrs.append(bgr)
-            if i%10==0:
-                print(f'Ntire2022 scene {i} is loaded.')
+
+        print(f'training set loaded. len(hypers): {len(self.hypers)}, len(bgrs): {len(self.bgrs)}')
         self.img_num = len(self.hypers)
         self.length = self.patch_per_img * self.img_num
 
@@ -167,8 +167,8 @@ class ValidDataset(Dataset):
             if bgr.shape[1] != h or bgr.shape[2] != w or hyper.shape[1] != h or hyper.shape[2] != w:
                 print(f"Skipping: {bgr_path}, Invalid shape: {bgr.shape}, {hyper.shape}")
                 continue
-            if i%10==0:
-                print(f'Ntire2022 scene {i} is loaded.')
+
+            print(f'Testing set loaded. len(hypers): {len(self.hypers)}, len(bgrs): {len(self.bgrs)}')
             self.hypers.append(hyper)
             self.bgrs.append(bgr)
 
