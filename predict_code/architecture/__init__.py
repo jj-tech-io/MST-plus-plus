@@ -39,3 +39,4 @@ def model_generator(method, pretrained_model_path=None):
         model.load_state_dict({k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()},
                               strict=True)
     return model
+

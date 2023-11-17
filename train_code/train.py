@@ -18,8 +18,8 @@ import importlib
 parser = argparse.ArgumentParser(description="Spectral Recovery Toolbox")
 parser.add_argument('--method', type=str, default='mst_plus_plus')
 parser.add_argument('--pretrained_model_path', type=str, default=None)
-parser.add_argument("--batch_size", type=int, default=20, help="batch size")
-parser.add_argument("--end_epoch", type=int, default=300, help="number of epochs")
+parser.add_argument("--batch_size", type=int, default=8, help="batch size")
+parser.add_argument("--end_epoch", type=int, default=10, help="number of epochs")
 parser.add_argument("--init_lr", type=float, default=4e-4, help="initial learning rate")
 parser.add_argument("--outf", type=str, default='./exp/mst_plus_plus/', help='path log files')
 parser.add_argument("--train_rgb", type=str, default='./dataset/Train_RGB/', help='path to training rgb images')
@@ -45,7 +45,7 @@ val_data = ValidDataset(test_spec_path=opt.test_spec, test_rgb_path=opt.test_rgb
 print("Validation set samples: ", len(val_data))
 
 # iterations
-per_epoch_iteration = 1000
+per_epoch_iteration = 10
 total_iteration = per_epoch_iteration*opt.end_epoch
 
 # loss function
@@ -104,15 +104,19 @@ if resume_file is not None:
 
 def main():
     cudnn.benchmark = True
-    iteration = 0
-    record_mrae_loss = 1000
-    while iteration<total_iteration:
+    record_mrae_loss = 10
+    num_epochs = total_iteration // len(train_data) # Assuming total_iteration is total number of batches to process
+    
+    for epoch in range(num_epochs):
         model.train()
         losses = AverageMeter()
-        train_loader = DataLoader(dataset=train_data, batch_size=opt.batch_size, shuffle=True, num_workers=2,
-                                  pin_memory=True, drop_last=True)
+        train_loader = DataLoader(dataset=train_data, batch_size=opt.batch_size, shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
         val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=False, num_workers=2, pin_memory=True)
+
         for i, (images, labels) in enumerate(train_loader):
+            iteration = epoch * len(train_loader) + i  # Compute the global step (iteration) number
+
+            # Training step
             labels = labels.cuda()
             images = images.cuda()
             images = Variable(images)
@@ -125,26 +129,28 @@ def main():
             optimizer.step()
             scheduler.step()
             losses.update(loss.data)
-            iteration = iteration+1
-            if iteration % 20 == 0:
-                print('[iter:%d/%d],lr=%.9f,train_losses.avg=%.9f'
-                      % (iteration, total_iteration, lr, losses.avg))
-            if iteration % 1000 == 0:
+
+            if iteration % 5 == 0:
+                print('[iter:%d/%d],lr=%.9f,train_losses.avg=%.9f' % (iteration, total_iteration, lr, losses.avg))
+
+            if iteration % 5 == 0:
                 mrae_loss, rmse_loss, psnr_loss = validate(val_loader, model)
                 print(f'MRAE:{mrae_loss}, RMSE: {rmse_loss}, PNSR:{psnr_loss}')
-                # Save model
+                
+                # Checkpoint saving logic here
                 if torch.abs(mrae_loss - record_mrae_loss) < 0.01 or mrae_loss < record_mrae_loss or iteration % 5000 == 0:
                     print(f'Saving to {opt.outf}')
-                    save_checkpoint(opt.outf, (iteration // 1000), iteration, model, optimizer)
+                    save_checkpoint(opt.outf, epoch, iteration, model, optimizer)
                     if mrae_loss < record_mrae_loss:
                         record_mrae_loss = mrae_loss
-                # print loss
-                print(" Iter[%06d], Epoch[%06d], learning rate : %.9f, Train MRAE: %.9f, Test MRAE: %.9f, "
-                      "Test RMSE: %.9f, Test PSNR: %.9f " % (iteration, iteration//1000, lr, losses.avg, mrae_loss, rmse_loss, psnr_loss))
-                logger.info(" Iter[%06d], Epoch[%06d], learning rate : %.9f, Train Loss: %.9f, Test MRAE: %.9f, "
-                      "Test RMSE: %.9f, Test PSNR: %.9f " % (iteration, iteration//1000, lr, losses.avg, mrae_loss, rmse_loss, psnr_loss))
-    return 0
 
+                # Logging
+                print(" Iter[%06d], Epoch[%06d], learning rate : %.9f, Train MRAE: %.9f, Test MRAE: %.9f, "
+                      "Test RMSE: %.9f, Test PSNR: %.9f " % (iteration, epoch, lr, losses.avg, mrae_loss, rmse_loss, psnr_loss))
+                logger.info(" Iter[%06d], Epoch[%06d], learning rate : %.9f, Train Loss: %.9f, Test MRAE: %.9f, "
+                      "Test RMSE: %.9f, Test PSNR: %.9f " % (iteration, epoch, lr, losses.avg, mrae_loss, rmse_loss, psnr_loss))
+
+    return model
 # Validate
 def validate(val_loader, model):
     model.eval()
@@ -167,5 +173,10 @@ def validate(val_loader, model):
     return losses_mrae.avg, losses_rmse.avg, losses_psnr.avg
 
 if __name__ == '__main__':
-    main()
+    model = main()
+    # Save model
+    save_checkpoint(opt.outf, opt.end_epoch, total_iteration, model, optimizer)
+    
+    
+    #print torch.__version__ cuda version
     print(torch.__version__)

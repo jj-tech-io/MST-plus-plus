@@ -43,6 +43,8 @@ class TrainDataset(Dataset):
         # bgr_list = [x for x in bgr_list if x.split('.')[0] in [y.split('.')[0] for y in hyper_list]]
         print(f'len(hyper) of ntire2022 dataset:{len(hyper_list)}')
         print(f'len(bgr) of ntire2022 dataset:{len(bgr_list)}')
+        print(f'shape of hypers: {np.shape(self.hypers)}')
+        print(f'shape of bgrs: {np.shape(self.bgrs)}')
         for i in range(len(hyper_list)):
             hyper_path = hyper_data_path / hyper_list[i]
             bgr_path = bgr_data_path / bgr_list[i]
@@ -74,7 +76,8 @@ class TrainDataset(Dataset):
                 continue
             self.hypers.append(hyper)
             self.bgrs.append(bgr)
-            print(f'Ntire2022 scene {i} is loaded.')
+            if i%10==0:
+                print(f'Ntire2022 scene {i} is loaded.')
         self.img_num = len(self.hypers)
         self.length = self.patch_per_img * self.img_num
 
@@ -133,6 +136,8 @@ class ValidDataset(Dataset):
         # bgr_list = [x for x in bgr_list if x.split('.')[0] in [y.split('.')[0] for y in hyper_list]]
         print(f'len(hyper_valid) of ntire2022 dataset:{len(hyper_list)}')
         print(f'len(bgr_valid) of ntire2022 dataset:{len(bgr_list)}')
+        print(f'shape of hypers: {np.shape(self.hypers)}')
+        print(f'shape of bgrs: {np.shape(self.bgrs)}')
         for i in range(len(hyper_list)):
             hyper_path = hyper_data_path / hyper_list[i]
             bgr_path = bgr_data_path / bgr_list[i]
@@ -162,6 +167,8 @@ class ValidDataset(Dataset):
             if bgr.shape[1] != h or bgr.shape[2] != w or hyper.shape[1] != h or hyper.shape[2] != w:
                 print(f"Skipping: {bgr_path}, Invalid shape: {bgr.shape}, {hyper.shape}")
                 continue
+            if i%10==0:
+                print(f'Ntire2022 scene {i} is loaded.')
             self.hypers.append(hyper)
             self.bgrs.append(bgr)
 

@@ -30,6 +30,9 @@ def initialize_logger(file_dir):
     fhandler.setFormatter(formatter)
     logger.addHandler(fhandler)
     logger.setLevel(logging.INFO)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
     return logger
 
 def save_checkpoint(model_path, epoch, iteration, model, optimizer):
@@ -60,7 +63,7 @@ class Loss_RMSE(nn.Module):
         assert outputs.shape == label.shape
         error = outputs-label
         sqrt_error = torch.pow(error,2)
-        rmse = torch.sqrt(torch.mean(sqrt_error.view(-1)))
+        rmse = torch.sqrt(torch.mean(sqrt_error.reshape(-1)))
         return rmse
 
 class Loss_PSNR(nn.Module):
