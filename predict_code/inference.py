@@ -1,5 +1,6 @@
 import sys
 import cv2
+import os
 sys.path.append(r'C:\Users\joeli\Dropbox\Code\MST-plus-plus\predict_code\architecture')
 
 import torch
@@ -11,13 +12,15 @@ from torchvision import transforms
 from PIL import Image
 from pathlib import Path
 import scipy.io
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+
+import spectral2rgb
 
 # Define the preprocessing steps
-def preprocess_rgb_image(rgb_image_path, expected_size=(482, 512)):
+def preprocess_true_rgb_path(true_rgb_path_path, expected_size=(482, 512)):
     # Read the image
-    bgr_image = cv2.imread(rgb_image_path)
+    bgr_image = cv2.imread(true_rgb_path_path)
     bgr_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)  # Convert to RGB
 
     # Resize the image if needed
@@ -33,11 +36,11 @@ def preprocess_rgb_image(rgb_image_path, expected_size=(482, 512)):
     return input_tensor
 
 # Predict function
-def predict_hsi_from_rgb(model, rgb_image_path):
+def predict_hsi_from_rgb(model, true_rgb_path_path):
     model.eval()  # Set the model to evaluation mode
     with torch.no_grad():
         # Assume the model is on CUDA, move input tensor to the same device
-        input_tensor = preprocess_rgb_image(rgb_image_path).cuda()
+        input_tensor = preprocess_true_rgb_path(true_rgb_path_path).cuda()
         
         # Inference
         output_tensor = model(input_tensor)
@@ -46,29 +49,67 @@ def predict_hsi_from_rgb(model, rgb_image_path):
         hsi_output = output_tensor.cpu().numpy().squeeze(0)  # Remove batch dimension
         return hsi_output
 
-def plot_bands(predicted_hsi, true_hsi, num_bands_to_plot=10):
-    # Ensure the predicted and true HSI data have the same shape
-    assert predicted_hsi.shape == true_hsi.shape
+def plot_specific_bands(predicted_hsi, true_hsi, true_rgb_path, band_indices):
+    fig, axs = plt.subplots(4, 2, figsize=(15, 5))
+    wavelengths = np.arange(400, 1001, 10)[:31]
+    true_hsi = np.transpose(true_hsi, (2, 0, 1))
+    true_rgb = cv2.resize(true_rgb_path, (512, 482))
+    true_rgb = np.float32(true_rgb) / 255.0
+    
+    print(f'predicted_hsi.shape: {predicted_hsi.shape}')
+    # Plot RGB image
+    axs[0, 0].imshow(cv2.cvtColor(true_rgb_path, cv2.COLOR_BGR2RGB))
+    axs[0, 0].set_title('RGB Image')
+    axs[0, 0].axis('off')
 
-    # Number of rows and columns for subplot
-    num_rows = num_bands_to_plot
-    num_cols = 2  # Two columns: one for predicted, one for true
+    # Plot true band
+    axs[1, 0].imshow(true_hsi[0], cmap='gray')
+    axs[1, 0].set_title(f'True Band {wavelengths[0]} nm')
+    axs[1, 0].axis('off')
 
-    fig, axs = plt.subplots(num_rows, num_cols, figsize=(10, 2 * num_rows))
+    axs[2, 0].imshow(true_hsi[3], cmap='gray')
+    axs[2, 0].set_title(f'True Band {wavelengths[3]}')
+    axs[2, 0].axis('off')
 
-    # Select a subset of bands to plot
-    band_indices = np.linspace(0, predicted_hsi.shape[0] - 1, num_bands_to_plot, dtype=int)
+    axs[3, 0].imshow(true_hsi[8], cmap='gray')
+    axs[3, 0].set_title(f'True Band {wavelengths[8]}')
+    axs[3, 0].axis('off')
 
-    for i, band_idx in enumerate(band_indices):
-        # Plot predicted band
-        axs[i, 0].imshow(predicted_hsi[band_idx], cmap='gray')
-        axs[i, 0].set_title(f'Predicted Band {band_idx}')
-        axs[i, 0].axis('off')
+    #recovered rgb
+    #resize to -1,31
+    predicted_hsi = np.reshape(predicted_hsi, (31, 482, 512))
+    #to w,h,c
+    predicted_hsi = np.transpose(predicted_hsi, (1,2,0))
+    print(f'predicted_hsi.shape: {predicted_hsi.shape}')
+    #crop to square
+    h,w,c = predicted_hsi.shape
+    if h!=w:
+        predicted_hsi = predicted_hsi[:min(h,w),:min(h,w),:]
+    print(f'predicted_hsi.shape: {predicted_hsi.shape}')
+    #resize to -1,31
+    # predicted_hsi = np.reshape(predicted_hsi, (-1, 31))
+    # print(f'predicted_hsi.shape: {predicted_hsi.shape}')
+    rgb_pred = spectral2rgb.Get_RGB(predicted_hsi, wavelengths)
+    axs[0, 1].imshow(rgb_pred)
+    axs[0, 1].set_title('Recovered RGB')
+    axs[0, 1].axis('off')
+    # Plot predicted band   
 
-        # Plot true band
-        axs[i, 1].imshow(true_hsi[band_idx], cmap='gray')
-        axs[i, 1].set_title(f'True Band {band_idx}')
-        axs[i, 1].axis('off')
+    axs[1, 1].imshow(predicted_hsi[:,:,0], cmap='gray')
+    axs[1, 1].set_title(f'Predicted Band {wavelengths[0]} nm')
+    axs[1, 1].axis('off')
+
+    axs[2, 1].imshow(predicted_hsi[:,:,3], cmap='gray')
+    axs[2, 1].set_title(f'Predicted Band {wavelengths[3]}')
+    axs[2, 1].axis('off')
+
+    axs[3, 1].imshow(predicted_hsi[:,:,8], cmap='gray')
+    axs[3, 1].set_title(f'Predicted Band {wavelengths[8]}')
+    axs[3, 1].axis('off')
+
+
+
+
 
     plt.tight_layout()
     plt.show()
@@ -84,7 +125,23 @@ if __name__ == '__main__':
     checkpoint = torch.load(model_path)
     model.load_state_dict({k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}, strict=True)
 
+    val_path = r'C:\Users\joeli\Dropbox\Code\MST-plus-plus\dataset\Val_Spec'
+    rgb_path = r'C:\Users\joeli\Dropbox\Code\MST-plus-plus\dataset\Val_RGB'
+    val_path = Path(val_path)
+    rgb_path = Path(rgb_path)
+    val_list = os.listdir(val_path)
+    rgb_list = os.listdir(rgb_path)
+    val_list.sort()
+    rgb_list.sort()
+    hsi_true = os.path.join(val_path, val_list[0])
+    rgb_true = os.path.join(rgb_path, rgb_list[0])
+    hsi_true = np.float32(scipy.io.loadmat(hsi_true)['hsi'])
+    rgb_true = cv2.imread(rgb_true)
+    rgb_true = cv2.cvtColor(rgb_true, cv2.COLOR_BGR2RGB)
+
+    print(f'first val_list: {val_list[0]}')
+    print(f'first rgb_list: {rgb_list[0]}')
     # Prediction
-    predicted_hsi = predict_hsi_from_rgb(model, r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\dataset\Val_RGB\p023_smile_front.jpg")
+    predicted_hsi = predict_hsi_from_rgb(model, os.path.join(rgb_path, rgb_list[0]))
     print(predicted_hsi.shape)
-    plot_bands(predicted_hsi, true_hsi, num_bands_to_plot=10)
+    plot_specific_bands(predicted_hsi, hsi_true, rgb_true, [0,4,8])
