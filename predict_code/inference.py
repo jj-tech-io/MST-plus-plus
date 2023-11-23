@@ -49,16 +49,18 @@ def predict_hsi_from_rgb(model, true_rgb_path_path):
         hsi_output = output_tensor.cpu().numpy().squeeze(0)  # Remove batch dimension
         return hsi_output
 
-def plot_specific_bands(predicted_hsi, true_hsi, true_rgb_path, band_indices):
-    fig, axs = plt.subplots(4, 2, figsize=(15, 5))
+def plot_specific_bands(predicted_hsi, true_hsi, true_rgb, band_indices):
+    fig, axs = plt.subplots(4, 2, figsize=(4,8))
     wavelengths = np.arange(400, 1001, 10)[:31]
     true_hsi = np.transpose(true_hsi, (2, 0, 1))
-    true_rgb = cv2.resize(true_rgb_path, (512, 482))
-    true_rgb = np.float32(true_rgb) / 255.0
-    
+    true_rgb = np.float32(true_rgb) 
+    #black background
+    plt.style.use('dark_background')
+    #no axis
+    plt.axis('off')
     print(f'predicted_hsi.shape: {predicted_hsi.shape}')
     # Plot RGB image
-    axs[0, 0].imshow(cv2.cvtColor(true_rgb_path, cv2.COLOR_BGR2RGB))
+    axs[0, 0].imshow(true_rgb)
     axs[0, 0].set_title('RGB Image')
     axs[0, 0].axis('off')
 
@@ -90,7 +92,13 @@ def plot_specific_bands(predicted_hsi, true_hsi, true_rgb_path, band_indices):
     # predicted_hsi = np.reshape(predicted_hsi, (-1, 31))
     # print(f'predicted_hsi.shape: {predicted_hsi.shape}')
     rgb_pred = spectral2rgb.Get_RGB(predicted_hsi, wavelengths)
-    axs[0, 1].imshow(rgb_pred)
+    #normalize 0-1
+    rgb_pred = (rgb_pred - np.min(rgb_pred))/(np.max(rgb_pred) - np.min(rgb_pred))
+    #gamma correction using opencv
+    # rgb_pred = cv2.cvtColor(rgb_pred, cv2.COLOR_RGB2BGR)
+    rgb_pred = np.float32(rgb_pred) 
+
+    axs[0, 1].imshow(cv2.cvtColor(rgb_pred, cv2.COLOR_BGR2RGB))
     axs[0, 1].set_title('Recovered RGB')
     axs[0, 1].axis('off')
     # Plot predicted band   
@@ -115,7 +123,10 @@ def plot_specific_bands(predicted_hsi, true_hsi, true_rgb_path, band_indices):
     plt.show()
 
 if __name__ == '__main__':
-    model_path = r'C:\Users\joeli\Dropbox\Code\MST-plus-plus\exp\mst_plus_plus\2023_11_16_17_10_43\net_10epoch.pth'
+    model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\exp\mst_plus_plus\2023_11_21_13_36_52\net_14epoch.pth"
+    model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\exp\mst_plus_plus\2023_11_16_20_46_31\net_14epoch.pth"
+    model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\exp\mst_plus_plus\2023_11_21_13_36_52\net_14epoch.pth"
+    model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\.exp\trained2023_11_22_12_03_16\net_7epoch.pth"
     model = MST_Plus_Plus(in_channels=3, out_channels=31, n_feat=31, stage=3)
     
     # Load the model onto the GPU
@@ -126,22 +137,27 @@ if __name__ == '__main__':
     model.load_state_dict({k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}, strict=True)
 
     val_path = r'C:\Users\joeli\Dropbox\Code\MST-plus-plus\dataset\Val_Spec'
-    rgb_path = r'C:\Users\joeli\Dropbox\Code\MST-plus-plus\dataset\Val_RGB'
+    # rgb_path = r"C:\Users\joeli\Dropbox\UE5Exports\FaceColor_CM1.PNG"
+    rgb_path = r"C:\Users\joeli\Dropbox\Data\models_4k\m53_4k.png"
+    # "C:\Users\joeli\Dropbox\Data\models_4k\m32_4k.png"
+    rgb_path = r'C:\Users\joeli\Dropbox\Data\models_4k\m32_4k.png'
+    # rgb_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\dataset\Train_RGB\p021_neutral_front.jpg"
     val_path = Path(val_path)
     rgb_path = Path(rgb_path)
-    val_list = os.listdir(val_path)
-    rgb_list = os.listdir(rgb_path)
+    val_list = os.listdir(val_path) 
+    # rgb_list = os.listdir(rgb_path)
     val_list.sort()
-    rgb_list.sort()
+    # rgb_list.sort()
     hsi_true = os.path.join(val_path, val_list[0])
-    rgb_true = os.path.join(rgb_path, rgb_list[0])
+    rgb_true = rgb_path
     hsi_true = np.float32(scipy.io.loadmat(hsi_true)['hsi'])
-    rgb_true = cv2.imread(rgb_true)
-    rgb_true = cv2.cvtColor(rgb_true, cv2.COLOR_BGR2RGB)
+    rgb_true = Image.open(rgb_true).convert('RGB')
+    rgb_true = np.array(rgb_true)/255.0
+    # rgb_true = cv2.cvtColor(rgb_true, cv2.COLOR_BGR2RGB)
 
     print(f'first val_list: {val_list[0]}')
-    print(f'first rgb_list: {rgb_list[0]}')
+    # print(f'first rgb_list: {rgb_list[0]}')
     # Prediction
-    predicted_hsi = predict_hsi_from_rgb(model, os.path.join(rgb_path, rgb_list[0]))
+    predicted_hsi = predict_hsi_from_rgb(model, os.path.join(rgb_path, rgb_path))
     print(predicted_hsi.shape)
     plot_specific_bands(predicted_hsi, hsi_true, rgb_true, [0,4,8])

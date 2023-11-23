@@ -30,21 +30,34 @@ def initialize_logger(file_dir):
     fhandler.setFormatter(formatter)
     logger.addHandler(fhandler)
     logger.setLevel(logging.INFO)
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
     return logger
 
-def save_checkpoint(model_path, epoch, iteration, model, optimizer):
+# def save_checkpoint(model_path, epoch, iteration, model, optimizer):
+#     state = {
+#         'epoch': epoch,
+#         'iter': iteration,
+#         'state_dict': model.state_dict(),
+#         'optimizer': optimizer.state_dict(),
+#     }
+
+#     torch.save(state, os.path.join(model_path, 'net_%depoch.pth' % epoch))
+def save_model(model, optimizer, epoch, iteration, path):
+    """
+    Save the model state along with the optimizer state and other relevant information.
+
+    :param model: The PyTorch model to be saved.
+    :param optimizer: The optimizer used during training.
+    :param epoch: The current epoch.
+    :param iteration: The current iteration.
+    :param path: The path where to save the model.
+    """
     state = {
         'epoch': epoch,
         'iter': iteration,
         'state_dict': model.state_dict(),
         'optimizer': optimizer.state_dict(),
     }
-
-    torch.save(state, os.path.join(model_path, 'net_%depoch.pth' % epoch))
-
+    torch.save(state, path)
 class Loss_MRAE(nn.Module):
     def __init__(self):
         super(Loss_MRAE, self).__init__()
