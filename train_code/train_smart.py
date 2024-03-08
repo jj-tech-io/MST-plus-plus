@@ -10,9 +10,15 @@ from architecture import model_generator
 import argparse
 from torch.autograd import Variable
 
+utils = 'utils'
+import sys
+sys.path.append(utils)
+#save_checkpoint = utils.save_checkpoint
 
 from architecture import *
-from utils import AverageMeter, initialize_logger, save_checkpoint, record_loss, time2file_name, Loss_MRAE, Loss_RMSE, Loss_PSNR
+import utils
+
+from utils import AverageMeter, initialize_logger, record_loss, time2file_name, Loss_MRAE, Loss_RMSE, Loss_PSNR
 import datetime
 # Argument parsing
 parser = argparse.ArgumentParser(description="Spectral Recovery Toolbox")

@@ -4,6 +4,9 @@ import os
 sys.path.append(r'C:\Users\joeli\Dropbox\Code\MST-plus-plus\predict_code\architecture')
 
 import torch
+# import MST_Plus_Plus
+import sys
+sys.path.append('MST_Plus_Plus.py')
 from MST_Plus_Plus import MST_Plus_Plus  # Corrected import statement
 import torch
 import numpy as np
@@ -125,8 +128,8 @@ def plot_specific_bands(predicted_hsi, true_hsi, true_rgb, band_indices):
 if __name__ == '__main__':
     model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\exp\mst_plus_plus\2023_11_21_13_36_52\net_14epoch.pth"
     model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\exp\mst_plus_plus\2023_11_16_20_46_31\net_14epoch.pth"
-    model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\exp\mst_plus_plus\2023_11_21_13_36_52\net_14epoch.pth"
-    model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\.exp\trained2023_11_22_12_03_16\net_7epoch.pth"
+    model_path = r"C:\Users\joeli\Dropbox\Code\Python Projects\MST-plus-plus\exp\mst_plus_plus\2023_11_21_13_36_52\net_14epoch.pth"
+    # model_path = r"C:\Users\joeli\Dropbox\Code\Python Projects\MST-plus-plus\exp\mst_plus_plus\net_1epoch.pth"
     model = MST_Plus_Plus(in_channels=3, out_channels=31, n_feat=31, stage=3)
     
     # Load the model onto the GPU
@@ -136,11 +139,12 @@ if __name__ == '__main__':
     checkpoint = torch.load(model_path)
     model.load_state_dict({k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}, strict=True)
 
-    val_path = r'C:\Users\joeli\Dropbox\Code\MST-plus-plus\dataset\Val_Spec'
+    val_path = r'C:\Users\joeli\Dropbox\Code\Python Projects\MST-plus-plus\dataset\Val_Spec'
     # rgb_path = r"C:\Users\joeli\Dropbox\UE5Exports\FaceColor_CM1.PNG"
     rgb_path = r"C:\Users\joeli\Dropbox\Data\models_4k\m53_4k.png"
     # "C:\Users\joeli\Dropbox\Data\models_4k\m32_4k.png"
     rgb_path = r'C:\Users\joeli\Dropbox\Data\models_4k\m32_4k.png'
+    rgb_path = r"C:\Users\joeli\Dropbox\Code\Python Projects\MST-plus-plus\dataset\Val_RGB\p021_neutral_front.jpg"
     # rgb_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\dataset\Train_RGB\p021_neutral_front.jpg"
     val_path = Path(val_path)
     rgb_path = Path(rgb_path)
@@ -161,3 +165,9 @@ if __name__ == '__main__':
     predicted_hsi = predict_hsi_from_rgb(model, os.path.join(rgb_path, rgb_path))
     print(predicted_hsi.shape)
     plot_specific_bands(predicted_hsi, hsi_true, rgb_true, [0,4,8])
+    rgb_corrected = spectral2rgb.Get_RGB(predicted_hsi[:,:,:31], np.linspace(400, 700, 31))
+    #reshape to width, height, channels
+    rgb_corrected = np.transpose(rgb_corrected, (1,2,0)).reshape(482,512,3)
+    plt.imshow(rgb_corrected)
+    plt.show()
+    

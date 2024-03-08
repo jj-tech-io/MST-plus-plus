@@ -66,7 +66,7 @@ def Get_RGB(hsi_data, wavelengths):
     num_bands = reflectances.shape[1]
     if len(wavelengths) != num_bands:
         s = f"len(wavelengths) = {len(wavelengths)} and num_bands = {num_bands})"
-        raise ValueError(f"Length of wavelengths must match number of bands in hsi_data ({s})")
+        wavelengths = wavelengths[:num_bands]
 
     # Calculate the XYZ values for each wavelength and sum them
     x = xFit_1931(wavelengths) * reflectances

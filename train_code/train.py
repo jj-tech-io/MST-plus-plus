@@ -9,10 +9,16 @@ from hsi_dataset import TrainDataset, ValidDataset
 from architecture import model_generator
 import argparse
 from torch.autograd import Variable
+#C:\Users\joeli\Dropbox\Code\Python Projects\MST-plus-plus\train_code\utils.py
+#add to path
+utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'train_code')
+import sys
+sys.path.append(utils_path)
 
 
 from architecture import *
-from utils import AverageMeter, initialize_logger, save_checkpoint, record_loss, time2file_name, Loss_MRAE, Loss_RMSE, Loss_PSNR
+import utils
+from utils import AverageMeter, initialize_logger, record_loss, time2file_name, Loss_MRAE, Loss_RMSE, Loss_PSNR
 import datetime
 # Argument parsing
 parser = argparse.ArgumentParser(description="Spectral Recovery Toolbox")
