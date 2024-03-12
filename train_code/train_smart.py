@@ -24,7 +24,7 @@ import datetime
 parser = argparse.ArgumentParser(description="Spectral Recovery Toolbox")
 parser.add_argument('--method', type=str, default='mst_plus_plus')
 parser.add_argument('--pretrained_model_path', type=str, default=None)
-parser.add_argument("--batch_size", type=int, default=20, help="batch size")
+parser.add_argument("--batch_size", type=int, default=5, help="batch size")
 parser.add_argument("--end_epoch", type=int, default=10, help="number of epochs")
 parser.add_argument("--init_lr", type=float, default=4e-4, help="initial learning rate")
 parser.add_argument("--outf", type=str, default='.exp/trained', help='path to log files')
@@ -33,11 +33,10 @@ parser.add_argument("--train_spec", type=str, default='./dataset/Train_Spec/', h
 parser.add_argument("--test_rgb", type=str, default='./dataset/Val_RGB/', help='path to testing RGB images')
 parser.add_argument("--test_spec", type=str, default='./dataset/Val_Spec/', help='path to testing spectral images')
 parser.add_argument("--data_root", type=str, default='./dataset/', help='path to dataset')
-parser.add_argument("--patch_size", type=int, default=128, help="patch size")
+parser.add_argument("--patch_size", type=int, default=256, help="patch size")
 parser.add_argument("--stride", type=int, default=8, help="stride")
 parser.add_argument("--gpu_id", type=str, default='0', help='GPU ID')
 opt = parser.parse_args()
-
 # Environment setup
 os.environ["CUDA_DEVICE_ORDER"] = 'PCI_BUS_ID'
 os.environ["CUDA_VISIBLE_DEVICES"] = opt.gpu_id
@@ -48,49 +47,39 @@ def setup():
     # Load dataset
     train_data = TrainDataset(opt.train_spec, opt.train_rgb, opt.patch_size, True, False, opt.stride)
     val_data = ValidDataset(opt.test_spec, opt.test_rgb, False)
-
     # Create DataLoaders
     train_loader = DataLoader(dataset=train_data, batch_size=opt.batch_size, shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
     val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=False, num_workers=2, pin_memory=True)
-
     # iterations
     per_epoch_iteration = 100
     total_iteration = per_epoch_iteration*opt.end_epoch
-
     # loss function
     criterion_mrae = Loss_MRAE()
     criterion_rmse = Loss_RMSE()
     criterion_psnr = Loss_PSNR()
-
     # model
     pretrained_model_path = opt.pretrained_model_path
     method = opt.method
     model = model_generator(method, pretrained_model_path).cuda()
     print('Parameters number is ', sum(param.numel() for param in model.parameters()))
-
     # output path
     date_time = str(datetime.datetime.now())
     date_time = time2file_name(date_time)
     opt.outf = opt.outf + date_time
     if not os.path.exists(opt.outf):
         os.makedirs(opt.outf)
-
     if torch.cuda.is_available():
         model.cuda()
         criterion_mrae.cuda()
         criterion_rmse.cuda()
         criterion_psnr.cuda()
-
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
-
     optimizer = optim.Adam(model.parameters(), lr=opt.init_lr, betas=(0.9, 0.999))
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, total_iteration, eta_min=1e-6)
-
     # logging
     log_dir = os.path.join(opt.outf, 'train.log')
     logger = initialize_logger(log_dir)
-
     # Resume
     resume_file = opt.pretrained_model_path
     if resume_file is not None:
@@ -128,13 +117,14 @@ def main():
             if iteration % 20 == 0:
                 print('[iter:%d/%d],lr=%.9f,train_losses.avg=%.9f'
                       % (iteration, total_iteration, lr, losses.avg))
-            if iteration % 1000 == 0:
+            if iteration % 100 == 0:
                 mrae_loss, rmse_loss, psnr_loss = validate(val_loader, model)
                 print(f'MRAE:{mrae_loss}, RMSE: {rmse_loss}, PNSR:{psnr_loss}')
                 # Save model
                 if abs(mrae_loss - record_mrae_loss) < 0.01 or mrae_loss < record_mrae_loss or iteration % 5000 == 0:
                     print(f'Saving to {opt.outf}')
-                    save_checkpoint(opt.outf, (iteration // 1000), iteration, model, optimizer)
+                    save_path = os.path.join(opt.outf, f'epoch_{iteration//1000}_train_loss{losses.avg}_test_loss_{mrae_loss}.pth')
+                    torch.save(model.state_dict(), save_path)
                     if mrae_loss < record_mrae_loss:
                         record_mrae_loss = mrae_loss
                 # print loss

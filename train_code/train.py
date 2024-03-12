@@ -74,7 +74,10 @@ if torch.cuda.is_available():
     criterion_mrae.cuda()
     criterion_rmse.cuda()
     criterion_psnr.cuda()
-
+#print model keys and shapes
+# print(model.state_dict().keys())
+#print model summary
+# print(model)
 if torch.cuda.device_count() > 1:
     model = nn.DataParallel(model)
 
@@ -95,8 +98,10 @@ if resume_file is not None:
         iteration = checkpoint['iter']
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
+
 # Training function
 def main():
+    print(model)
     cudnn.benchmark = True
     iteration = 0
     record_mrae_loss = 1000
@@ -123,13 +128,14 @@ def main():
             if iteration % 20 == 0:
                 print('[iter:%d/%d],lr=%.9f,train_losses.avg=%.9f'
                       % (iteration, total_iteration, lr, losses.avg))
-            if iteration % 1000 == 0:
+            if iteration % 100 == 0:
                 mrae_loss, rmse_loss, psnr_loss = validate(val_loader, model)
                 print(f'MRAE:{mrae_loss}, RMSE: {rmse_loss}, PNSR:{psnr_loss}')
                 # Save model
                 if abs(mrae_loss - record_mrae_loss) < 0.01 or mrae_loss < record_mrae_loss or iteration % 5000 == 0:
                     print(f'Saving to {opt.outf}')
-                    save_checkpoint(opt.outf, (iteration // 1000), iteration, model, optimizer)
+                    save_path = os.path.join(opt.outf, f'epoch_{iteration//1000}_train_loss{losses.avg}_test_loss_{mrae_loss}.pth')
+                    torch.save(model.state_dict(), save_path)
                     if mrae_loss < record_mrae_loss:
                         record_mrae_loss = mrae_loss
                 # print loss

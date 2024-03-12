@@ -3,7 +3,41 @@ import scipy.io
 from os.path import basename, join, splitext
 import numpy as np
 import scipy.io
+import sys
+import mat73
+sys.path.append('resources')
+# from SpectralUtils import saveJPG, demosaic, addNoise, projectToRGBMosaic
+# Constants
+DARK_NOISE = 10 
+TARGET_NPE = 5000
+FILTERS_PATH = "./resources/cie_1964_w_gain.npz"
+CAMERA_PATH = "./resources/example_D40_camera_w_gain.npz"
+SAVE_PATH = "./output/"
+BIT_8 = 256
 
+def load_hsi_cube(filePath):
+    """
+    Converts an HSI file at 'filePath' to an RGB image using hard-coded filter path and save path.
+    Saves the resulting image to the save path and returns the RGB image.
+    """
+    # Check file extension and load data accordingly
+    _, ext = splitext(filePath)
+    cube = None
+    if ext.lower() == '.mat':
+        try:
+            # hsi_data =scipy.io.loadmat(filePath)  # for MATLAB v7.3 files
+            # Assuming 'cube' is the key for HSI data in the .mat file
+            cube = scipy.io.loadmat(filePath)
+        except NotImplementedError:  # for older MATLAB versions
+            hsi_data = np.load(filePath)  # using scipy.io's loadmat function for older .mat files
+    elif ext.lower() == '.npy':
+        cube = np.load(filePath) 
+    else:
+        raise ValueError("Unsupported file format: " + ext)
+
+
+
+    return cube
 
 
 def xFit_1931(wavelengths):

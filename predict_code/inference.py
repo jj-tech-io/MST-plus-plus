@@ -17,41 +17,63 @@ from pathlib import Path
 import scipy.io
 import numpy as np
 import matplotlib.pyplot as plt
-
+from MST_Plus_Plus import MST_Plus_Plus
+from MST import MST
 import spectral2rgb
 
-# Define the preprocessing steps
-def preprocess_true_rgb_path(true_rgb_path_path, expected_size=(482, 512)):
-    # Read the image
-    bgr_image = cv2.imread(true_rgb_path_path)
-    bgr_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)  # Convert to RGB
+def preprocess_rgb_image(rgb_image, expected_size=(512, 512)):
+
 
     # Resize the image if needed
-    bgr_image = cv2.resize(bgr_image, expected_size[::-1])  # OpenCV uses width, height
+    rgb_image = cv2.resize(rgb_image, expected_size[::-1])  # OpenCV uses width, height
 
     # Normalize the image
-    bgr_image = np.float32(bgr_image) / 255.0
-    bgr_image = np.transpose(bgr_image, (2, 0, 1))  # Change data layout to CxHxW
-    
+    rgb_image = np.float32(rgb_image) / 255.0
+    rgb_image = np.transpose(rgb_image, (2, 0, 1))  # Change data layout to CxHxW
+
     # Create a batch dimension and convert to tensor
-    input_tensor = torch.from_numpy(bgr_image).unsqueeze(0)
-    
+    input_tensor = torch.from_numpy(rgb_image).unsqueeze(0)
+
     return input_tensor
 
 # Predict function
-def predict_hsi_from_rgb(model, true_rgb_path_path):
+def predict_hsi_from_rgb(model, true_rgb_image_path):
     model.eval()  # Set the model to evaluation mode
     with torch.no_grad():
-        # Assume the model is on CUDA, move input tensor to the same device
-        input_tensor = preprocess_true_rgb_path(true_rgb_path_path).cuda()
-        
+        # Preprocess the RGB image
+        input_tensor = preprocess_rgb_image(true_rgb_image_path).cuda()
+
         # Inference
         output_tensor = model(input_tensor)
+
+        # The output is on GPU, move it back to CPU and convert to numpy array
+        hsi_output = output_tensor.cpu().numpy().squeeze(0)  # Remove batch dimension
+
+    return hsi_output
+
+# Predict function
+# def predict_hsi_from_rgb(model, true_rgb_path_path):
+#     model.eval()  # Set the model to evaluation mode
+#     with torch.no_grad():
+#         # Assume the model is on CUDA, move input tensor to the same device
+#         input_tensor = preprocess_true_rgb_path(true_rgb_path_path).cuda()
         
+#         # Inference
+#         output_tensor = model(input_tensor)
+        
+#         # The output is on GPU, move it back to CPU and convert to numpy array
+#         hsi_output = output_tensor.cpu().numpy().squeeze(0)  # Remove batch dimension
+#         return hsi_output
+def predict_hsi_from_rgb(model, rgb_tensor):
+    model.eval()  # Set the model to evaluation mode
+    with torch.no_grad():
+        # The input_tensor is assumed to be preprocessed, normalized and on the same device as the model
+        # Inference
+        output_tensor = model(rgb_tensor)
+
         # The output is on GPU, move it back to CPU and convert to numpy array
         hsi_output = output_tensor.cpu().numpy().squeeze(0)  # Remove batch dimension
         return hsi_output
-
 def plot_specific_bands(predicted_hsi, true_hsi, true_rgb, band_indices):
     fig, axs = plt.subplots(4, 2, figsize=(4,8))
     wavelengths = np.arange(400, 1001, 10)[:31]
@@ -129,45 +151,57 @@ if __name__ == '__main__':
     model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\exp\mst_plus_plus\2023_11_21_13_36_52\net_14epoch.pth"
     model_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\exp\mst_plus_plus\2023_11_16_20_46_31\net_14epoch.pth"
     model_path = r"C:\Users\joeli\Dropbox\Code\Python Projects\MST-plus-plus\exp\mst_plus_plus\2023_11_21_13_36_52\net_14epoch.pth"
-    # model_path = r"C:\Users\joeli\Dropbox\Code\Python Projects\MST-plus-plus\exp\mst_plus_plus\net_1epoch.pth"
-    model = MST_Plus_Plus(in_channels=3, out_channels=31, n_feat=31, stage=3)
-    
+    model_path = r"predict_code\mst_plus_plus.pth"
+    # model = MST_Plus_Plus(in_channels=3, out_channels=31, n_feat=31, stage=3)
+
+    model = MST(dim=31, stage=2, num_blocks=[2, 2, 2])
+    # model = model.cuda()
     # Load the model onto the GPU
-    model = model.cuda()  # Assuming you are using a GPU
+    # model = model.cuda()  # Assuming you are using a GPU
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if model_path is not None:
+        try:
+            print(f'load model from {model_path}')
+            #print model keys and shapes
+            print(model.state_dict().keys())
+            checkpoint = torch.load(model_path, strict=False)
+            print(checkpoint.keys())
+            model.load_state_dict(checkpoint['state_dict'] )
+        except:
+            print(f'load model from {model_path}')
+            checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
+            print(checkpoint.keys())
+            model.load_state_dict(checkpoint, strict=False)
 
-    # Load the saved model weights
-    checkpoint = torch.load(model_path)
-    model.load_state_dict({k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}, strict=True)
 
-    val_path = r'C:\Users\joeli\Dropbox\Code\Python Projects\MST-plus-plus\dataset\Val_Spec'
-    # rgb_path = r"C:\Users\joeli\Dropbox\UE5Exports\FaceColor_CM1.PNG"
-    rgb_path = r"C:\Users\joeli\Dropbox\Data\models_4k\m53_4k.png"
-    # "C:\Users\joeli\Dropbox\Data\models_4k\m32_4k.png"
-    rgb_path = r'C:\Users\joeli\Dropbox\Data\models_4k\m32_4k.png'
-    rgb_path = r"C:\Users\joeli\Dropbox\Code\Python Projects\MST-plus-plus\dataset\Val_RGB\p021_neutral_front.jpg"
-    # rgb_path = r"C:\Users\joeli\Dropbox\Code\MST-plus-plus\dataset\Train_RGB\p021_neutral_front.jpg"
-    val_path = Path(val_path)
-    rgb_path = Path(rgb_path)
-    val_list = os.listdir(val_path) 
-    # rgb_list = os.listdir(rgb_path)
-    val_list.sort()
-    # rgb_list.sort()
-    hsi_true = os.path.join(val_path, val_list[0])
-    rgb_true = rgb_path
-    hsi_true = np.float32(scipy.io.loadmat(hsi_true)['hsi'])
-    rgb_true = Image.open(rgb_true).convert('RGB')
-    rgb_true = np.array(rgb_true)/255.0
-    # rgb_true = cv2.cvtColor(rgb_true, cv2.COLOR_BGR2RGB)
+    model = model.to(device)  # Move model to GPU if available
+    model.eval()
+    RGB_DIR = r"C:\Users\joeli\Dropbox\Code\Python Projects\MST_JJ\rgb_images.pkl"
+    HSI_DIR = r"C:\Users\joeli\Dropbox\Code\Python Projects\MST_JJ\hsi_images.pkl"
+    import pickle
+    rgb_images = []
+    hsi_images = []
+    with open(RGB_DIR, 'rb') as f:
+        rgb_images = pickle.load(f)
+    with open(HSI_DIR, 'rb') as f:
+        hsi_images = pickle.load(f)
+    print(f'rgb_images: {len(rgb_images)}')
+    print(f'hsi_images: {len(hsi_images)}')
+    rgb_true = rgb_images[0]
+    hsi_true = hsi_images[0]
+    if np.max(rgb_true) > 1:
+        rgb_true = np.float32(rgb_true) / 255.0
 
-    print(f'first val_list: {val_list[0]}')
-    # print(f'first rgb_list: {rgb_list[0]}')
-    # Prediction
-    predicted_hsi = predict_hsi_from_rgb(model, os.path.join(rgb_path, rgb_path))
+    rgb_tensor = preprocess_rgb_image(rgb_true)
+    predicted_hsi = predict_hsi_from_rgb(model, rgb_tensor)
     print(predicted_hsi.shape)
     plot_specific_bands(predicted_hsi, hsi_true, rgb_true, [0,4,8])
     rgb_corrected = spectral2rgb.Get_RGB(predicted_hsi[:,:,:31], np.linspace(400, 700, 31))
-    #reshape to width, height, channels
-    rgb_corrected = np.transpose(rgb_corrected, (1,2,0)).reshape(482,512,3)
-    plt.imshow(rgb_corrected)
-    plt.show()
-    
+    rgb_corrected = spectral2rgb.convert_to_RGB(predicted_hsi[:,:,:31], np.linspace(400, 700, 31))
+    from os.path import splitext , join 
+    import cv2 as cv
+    # Save image file
+    fileName = f'{splitext(rgb_path.name)[0]}_realWorld'
+    path = join(rgb_path.parent, f'{fileName}.jpg')
+    # Display RGB image
+    # img = cv2.cvtColor(rgb_corrected, cv2.COLOR_BGR2RGB)
