@@ -5,6 +5,7 @@ import numpy as np
 import scipy.io
 import sys
 import mat73
+import cv2
 sys.path.append('resources')
 # from SpectralUtils import saveJPG, demosaic, addNoise, projectToRGBMosaic
 # Constants
@@ -115,7 +116,11 @@ def Get_RGB(hsi_data, wavelengths):
     # If it was a cube, reshape the result back to the original cube dimensions with 3 channels for RGB
     if hsi_data.ndim == 3:
         sRGB = sRGB.reshape((height, width, 3))
-
+    #rgb
+    sRGB = (sRGB - sRGB.min()) / (sRGB.max() - sRGB.min())
+    sRGB = np.uint8(sRGB * 255)
+    # bgr to rgb
+    sRGB = cv2.cvtColor(sRGB, cv2.COLOR_BGR2RGB)
     return sRGB
 
 def convert_to_RGB(hsi_cube, wavelengths):
